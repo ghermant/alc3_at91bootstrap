@@ -468,7 +468,8 @@ static int dataflash_recovery(struct dataflash_descriptor *df_desc)
 
 static int df_n25q_desc_init(struct dataflash_descriptor *df_desc)
 {
-	df_desc->pages = 16384;
+//	df_desc->pages = 16384;
+	df_desc->pages = 8192;
 	df_desc->page_size = 256;
 	df_desc->page_offset = 0;
 	df_desc->is_spinor = 1;
@@ -622,13 +623,18 @@ static int dataflash_probe_atmel(struct dataflash_descriptor *df_desc)
 
 	if (dev_id[0] != MANUFACTURER_ID_ATMEL &&
 	    dev_id[0] != MANUFACTURER_ID_WINBOND &&
-	    dev_id[0] != MANUFACTURER_ID_MICRON) {
+	    dev_id[0] != MANUFACTURER_ID_MICRON &&
+	    dev_id[0] != 0xBF) {
 		dbg_info("Not supported spi flash Manufactorer ID: %d\n",
 			 dev_id[0]);
 		return -1;
 	}
-
-	ret = df_desc_init(df_desc, (dev_id[1] & 0xe0));
+/* add support for spi flash sst25vf016b */
+	if (dev_id[0] == 0xBF)
+	 ret = df_desc_init(df_desc, DF_FAMILY_N25Q);
+	else
+	 ret = df_desc_init(df_desc, (dev_id[1] & 0xe0));
+	
 	if (ret)
 		return ret;
 

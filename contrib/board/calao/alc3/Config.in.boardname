@@ -1,0 +1,2 @@
+config CONFIG_BOARDNAME
+	default "alc3" if CONFIG_ALC3

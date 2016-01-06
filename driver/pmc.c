@@ -58,6 +58,7 @@ void lowlevel_clock_init()
 
 #if defined(AT91SAM9X5) || defined(AT91SAM9N12) || defined(SAMA5D3X) \
 	|| defined(SAMA5D4) || defined(SAMA5D2)
+#if 0
 	/*
 	 * Enable the 12MHz oscillator
 	 * tST_max = 2ms
@@ -89,6 +90,15 @@ void lowlevel_clock_init()
 
 	while (!(read_pmc(PMC_SR) & AT91C_PMC_MOSCSELS))
 		;
+#endif
+	/*
+	 * Bypass the 12MHz crystal oscillator
+	 */
+	tmp = read_pmc(PMC_MOR);
+	tmp &= (~AT91C_CKGR_MOSCXTEN);
+	tmp |= AT91C_CKGR_MOSCXTBY;
+	tmp |= AT91C_CKGR_PASSWD;
+	write_pmc(PMC_MOR, tmp);
 
 #if !defined(SAMA5D4) && !defined(SAMA5D2)
 	/* Disable the 12MHz RC oscillator */

@@ -31,6 +31,8 @@
 
 #ifdef CONFIG_VINCO
 #include "vinco.h"
+#elif CONFIG_ALC3
+#include "alc3.h"
 #endif
 
 #endif

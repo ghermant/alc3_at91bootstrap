@@ -48,6 +48,7 @@
 
 static void at91_dbgu_hw_init(void)
 {
+
 	/* Configure DBGU pin */
 	const struct pio_desc dbgu_pins[] = {
 		{"RXD", AT91C_PIN_PB(30), 0, PIO_DEFAULT, PIO_PERIPH_A},
@@ -69,25 +70,64 @@ static void initialize_dbgu(void)
 	usart_init(BAUDRATE(MASTER_CLOCK, 115200));
 }
 
+static void initialize_gpio(void)
+{
+	/* Configure PC &  pin */
+	const struct pio_desc gpio_pins[] = {
+		{"DDR2_CONFIG_HIGH", CONFIG_SYS_DDR2_SETTINGS_HIGH, 0, PIO_DEFAULT, PIO_INPUT},
+		{"DDR2_CONFIG_LOW", CONFIG_SYS_DDR2_SETTINGS_LOW, 0, PIO_DEFAULT, PIO_INPUT},
+		{(char *)0, 0, 0, PIO_DEFAULT, PIO_PERIPH_A},
+	};
+
+	/*  Configure the gpio pins */
+	pmc_enable_periph_clock(AT91C_ID_PIOC);	
+	pio_configure(gpio_pins);
+	
+}
+
 #ifdef CONFIG_DDR2
-static void ddramc_reg_config(struct ddramc_register *ddramc_config)
+static void ddramc_reg_config(struct ddramc_register *ddramc_config, unsigned int ddr2_size)
 {
 	ddramc_config->mdr = (AT91C_DDRC2_DBW_32_BITS
 				| AT91C_DDRC2_MD_DDR2_SDRAM);
 
-	ddramc_config->cr = (AT91C_DDRC2_NC_DDR10_SDR9
-//				| AT91C_DDRC2_NR_14
+	if (ddr2_size == 0) { 
+	 ddramc_config->cr = (AT91C_DDRC2_NC_DDR10_SDR9
 				| AT91C_DDRC2_NR_13
 				| AT91C_DDRC2_CAS_3
 				| AT91C_DDRC2_DLL_RESET_DISABLED /* DLL not reset */
 				| AT91C_DDRC2_DIS_DLL_DISABLED   /* DLL not disabled */
 				| AT91C_DDRC2_ENRDM_ENABLE       /* Phase error correction is enabled */
-//				| AT91C_DDRC2_NB_BANKS_8
 				| AT91C_DDRC2_NB_BANKS_4
 				| AT91C_DDRC2_NDQS_DISABLED      /* NDQS disabled (check on schematics) */
 				| AT91C_DDRC2_DECOD_INTERLEAVED  /* Interleaved decoding */
 				| AT91C_DDRC2_UNAL_SUPPORTED);   /* Unaligned access is supported */
-
+	}
+	else if (ddr2_size == 1) {
+	 ddramc_config->cr = (AT91C_DDRC2_NC_DDR10_SDR9
+				| AT91C_DDRC2_NR_13
+				| AT91C_DDRC2_CAS_3
+				| AT91C_DDRC2_DLL_RESET_DISABLED /* DLL not reset */
+				| AT91C_DDRC2_DIS_DLL_DISABLED   /* DLL not disabled */
+				| AT91C_DDRC2_ENRDM_ENABLE       /* Phase error correction is enabled */
+				| AT91C_DDRC2_NB_BANKS_8
+				| AT91C_DDRC2_NDQS_DISABLED      /* NDQS disabled (check on schematics) */
+				| AT91C_DDRC2_DECOD_INTERLEAVED  /* Interleaved decoding */
+				| AT91C_DDRC2_UNAL_SUPPORTED);   /* Unaligned access is supported */
+	
+	}
+	else if (ddr2_size == 2) {
+	 ddramc_config->cr = (AT91C_DDRC2_NC_DDR10_SDR9
+				| AT91C_DDRC2_NR_14
+				| AT91C_DDRC2_CAS_3
+				| AT91C_DDRC2_DLL_RESET_DISABLED /* DLL not reset */
+				| AT91C_DDRC2_DIS_DLL_DISABLED   /* DLL not disabled */
+				| AT91C_DDRC2_ENRDM_ENABLE       /* Phase error correction is enabled */
+				| AT91C_DDRC2_NB_BANKS_8
+				| AT91C_DDRC2_NDQS_DISABLED      /* NDQS disabled (check on schematics) */
+				| AT91C_DDRC2_DECOD_INTERLEAVED  /* Interleaved decoding */
+				| AT91C_DDRC2_UNAL_SUPPORTED);   /* Unaligned access is supported */
+	}
 #if defined(CONFIG_BUS_SPEED_133MHZ)
 	/*
 	 * The DDR2-SDRAM device requires a refresh every 15.625 us or 7.81 us.
@@ -176,12 +216,12 @@ static void ddramc_reg_config(struct ddramc_register *ddramc_config)
 #endif
 }
 
-static void ddramc_init(void)
+static void ddramc_init(ddr2_size)
 {
 	struct ddramc_register ddramc_reg;
 	unsigned int reg;
-
-	ddramc_reg_config(&ddramc_reg);
+	
+	ddramc_reg_config(&ddramc_reg,ddr2_size);
 
 	/* enable ddr2 clock */
 	pmc_enable_periph_clock(AT91C_ID_MPDDRC);
@@ -390,9 +430,26 @@ void hw_init(void)
 	/* initialize the dbgu */
 	initialize_dbgu();
 
+        /* Init GPIO input for DDR2 settings */
+	initialize_gpio();
+
 	/* Initialize MPDDR Controller */
 #ifdef CONFIG_DDR2
-	ddramc_init();
+	if ( pio_get_value(CONFIG_SYS_DDR2_SETTINGS_HIGH) == 0 && pio_get_value(CONFIG_SYS_DDR2_SETTINGS_LOW) == 0 ) {
+		dbg_info("DDR2 settings for 128MB\n");
+		ddramc_init(0);
+	}
+	else
+	 if ( pio_get_value(CONFIG_SYS_DDR2_SETTINGS_HIGH) == 0 && pio_get_value(CONFIG_SYS_DDR2_SETTINGS_LOW) == 1 ) {
+		dbg_info("DDR2 settings for 256MB\n");
+		ddramc_init(1);
+	 }
+        else
+	 if ( pio_get_value(CONFIG_SYS_DDR2_SETTINGS_HIGH) == 1 && pio_get_value(CONFIG_SYS_DDR2_SETTINGS_LOW) == 0 ) {
+		dbg_info("DDR2 settings for 512MB\n");
+		ddramc_init(2);
+	 }
+//	ddramc_init();
 #elif defined(CONFIG_LPDDR2)
 	lpddr2_init();
 #endif
